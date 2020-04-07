@@ -1,4 +1,4 @@
-function Rain(userOptions) {
+export function Rain(userOptions) {
 
     let chainY = (window.innerHeight * -1);
     let font;
@@ -220,6 +220,3 @@ function Rain(userOptions) {
         };
     }
 }
-
-let rain = new Rain();
-rain.start();
