@@ -11,9 +11,10 @@ ___
 * Add JS `new Rain().start();`
 * (optional) To customise animation pass options that You'd like to change to Rain object:
  ```javascript
- let options = {
+let options = {
         characters: `01`,
         fontSize: 22,
+        delay: -700,
         minimumSpeed: 1,
         maximumSpeed: 5,
         minimumChainLength: 10,
@@ -23,8 +24,12 @@ ___
         fontFamily: 'monospace',
         fontColor: 'hsla(120, 87%, 53%, 1)',
         fadeRange: 0.7,
+        chainChangeResistance: 8,
+        minimumCharChangeResistance: 50,
+        maximumCharChangeResistance: 100,
         columnsGap: 2,
         backgroundColor: 'hsla(0, 0%, 0%, 1)',
+        firstCharLighterBy: 25
     };
     let rain = new Rain(options);
     rain.start();
