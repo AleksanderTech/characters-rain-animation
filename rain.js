@@ -1,107 +1,137 @@
 export function Rain(userOptions) {
-
+    let options = new Options();
+    if (userOptions) {
+        options.setOptions(userOptions);
+    }
+    // ------------------------setup----------------------
     let chainY = (window.innerHeight * -1);
-    let font;
-    let firstCharColor;
+    let font = options.fontSize + 'px ' + options.fontFamily;
+    let firstCharColor = lighten(options.fontColor);
+    let canvas = document.getElementById(options.canvasId);
+    canvas.style.zIndex=-1;
+    canvas.style.position='fixed';
+    canvas.style.top=0;
+    canvas.style.left=0;
+    let ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    let columnsNumber = Math.round(canvas.width / options.fontSize);
+    let matrix = new Matrix(canvas, ctx);
+    let chains = createChainArray(columnsNumber);
+    let drawer = new Drawer(matrix, chains);
+    let animation;
+    let pause = false;
+
+    document.body.addEventListener('keypress', toggleMatrix);
+
+    
+    
 
     this.start = function () {
-        let options = new Options();
-        if(userOptions){
-            options.setOptions(userOptions);
+        if (matrixState()) {
+            chains = JSON.parse(sessionStorage.getItem('chains'));
+            drawer = new Drawer(matrix, chains);
+            animation = setInterval(render, options.interval, drawer, matrix);
+            return;
         }
-        let tools = new Tools(options);
-        let chainFactory = new ChainFactory(options, tools);
-        font = options.fontSize + 'px ' + options.fontFamily;
-        firstCharColor = tools.lighten(options.fontColor);
-        let canvas = document.getElementById(options.canvasId);
-        let ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        let columnsNumber = Math.round(canvas.width / options.fontSize);
-        let matrix = new Matrix(canvas, ctx);
-        let chains = chainFactory.createChainArray(columnsNumber);
-        let drawer = new Drawer(matrix, chains, options, tools);
-        let animation;
-        animation = setInterval(render, options.interval, drawer);
-    };
+        animation = setInterval(render, options.interval, drawer, matrix);
+    }
+    // ------------------------setup----------------------
+    // ------------------------util-----------------------
+    function matrixState() {
+        if (sessionStorage.getItem('chains')) {
+            return true;
+        }
+        return false;
+    }
 
-    function render(drawer) {
-        drawer.matrix.ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawer.matrix.ctx.fillStyle = drawer.options.backgroundColor;
-        drawer.matrix.ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawer.matrix.ctx.font = font;
+    function toggleMatrix() {
+        if (pause) {
+            animation = setInterval(render, options.interval, drawer, matrix);
+            pause = false;
+        } else {
+            sessionStorage.clear();
+            sessionStorage.setItem('chains', JSON.stringify(chains));
+            clearInterval(animation);
+            pause = true;
+        }
+    }
+
+    function randomNumber(from, to) {
+        return Math.ceil(Math.random() * (to - from) + from - 1);
+    }
+
+    function randomFloat(from, to) {
+        return Math.random() * (to - from) + from;
+    }
+
+    function lighten(hsla) {
+        let firstIndex, lastIndex;
+        firstIndex = hsla.indexOf('%');
+        lastIndex = hsla.lastIndexOf('%');
+        let prefix, suffix;
+        prefix = hsla.substring(0, firstIndex + 2);
+        suffix = hsla.substring(lastIndex);
+        let light = parseInt(hsla.substring(firstIndex + 2, lastIndex));
+        light = light + options.firstCharLighterBy;
+        return prefix + light + suffix;
+    }
+
+    function colorWithOpacity(opacity) {
+        let lastIndex = options.fontColor.lastIndexOf('%');
+        let prefix = options.fontColor.substring(0, lastIndex + 2);
+        return prefix + opacity + ')';
+    }
+
+    function randomCharacter() {
+        return new Character(options.characters.charAt(randomNumber(0, options.characters.length)), randomNumber(options.minimumCharChangeResistance, options.maximumCharChangeResistance));
+    }
+
+    function randomSpeed() {
+        return randomFloat((options.minimumSpeed) + options.fontSize, (options.maximumSpeed) + options.fontSize);
+    }
+    // ------------------------util-----------------------
+    function createChainArray(size) {
+        let chainArray = [];
+        let x = 0;
+        for (let i = 0; i < size; i++) {
+            if ((i % options.columnsGap) == 0) {
+                x = (i + 1) * options.fontSize;
+                let chain = new Chain(createCharacterArray(randomNumber(options.minimumChainLength, options.maximumChainLength)), x, options.delay, randomSpeed());
+                setCharactersOpacity(chain);
+                chainArray.push(chain);
+            }
+        }
+        return chainArray;
+    }
+
+    function setCharactersOpacity(chain) {
+        let opacityFraction = options.fadeRange / chain.characters.length;
+        let characterOpacity = 1;
+        for (let j = chain.characters.length - 1; j >= 0; j--) {
+            characterOpacity = characterOpacity - opacityFraction;
+            if (Math.sign(characterOpacity) == 1) {
+                chain.characters[j].opacity = characterOpacity;
+            }
+        }
+    }
+
+    function createCharacterArray(size) {
+        let symbolArray = [];
+        for (let i = 0; i < size; i++) {
+            symbolArray.push(randomCharacter());
+        }
+        return symbolArray;
+    }
+
+    function render(drawer, matrix) {
+        matrix.ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = options.backgroundColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        matrix.ctx.font = font;
         drawer.drawChains();
-    };
-
-    function ChainFactory(options, tools) {
-        this.options = options;
-        this.tools = tools;
-        this.createChainArray = function (size) {
-            let chainArray = [];
-            let x = 0;
-            for (let i = 0; i < size; i++) {
-                if ((i % options.columnsGap) == 0) {
-                    x = (i + 1) * options.fontSize;
-                    let chain = new Chain(
-                        createCharacterArray(this.tools.randomNumber(this.options.minimumChainLength, this.options.maximumChainLength)),
-                        x, this.options.delay, this.tools.randomSpeed(),this.options.fontSize);
-                    setCharactersOpacity(chain);
-                    chainArray.push(chain);
-                }
-            }
-            return chainArray;
-        };
-        function createCharacterArray(size) {
-            let symbolArray = [];
-            for (let i = 0; i < size; i++) {
-                symbolArray.push(tools.randomCharacter());
-            }
-            return symbolArray;
-        };
-        function setCharactersOpacity(chain) {
-            let opacityFraction = options.fadeRange / chain.characters.length;
-            let characterOpacity = 1;
-            for (let j = chain.characters.length - 1; j >= 0; j--) {
-                characterOpacity = characterOpacity - opacityFraction;
-                if (Math.sign(characterOpacity) == 1) {
-                    chain.characters[j].opacity = characterOpacity;
-                }
-            }
-        };
     }
-
-    function Tools(options) {
-        this.options = options;
-        this.randomNumber = function (from, to) {
-            return Math.ceil(Math.random() * (to - from) + from - 1);
-        };
-        this.randomFloat = function (from, to) {
-            return Math.random() * (to - from) + from;
-        };
-        this.lighten = function (hsla) {
-            let firstIndex, lastIndex;
-            firstIndex = hsla.indexOf('%');
-            lastIndex = hsla.lastIndexOf('%');
-            let prefix, suffix;
-            prefix = hsla.substring(0, firstIndex + 2);
-            suffix = hsla.substring(lastIndex);
-            let light = parseInt(hsla.substring(firstIndex + 2, lastIndex));
-            light = light + this.options.firstCharLighterBy;
-            return prefix + light + suffix;
-        };
-        this.colorWithOpacity = function (opacity) {
-            let lastIndex = this.options.fontColor.lastIndexOf('%');
-            let prefix = this.options.fontColor.substring(0, lastIndex + 2);
-            return prefix + opacity + ')';
-        };
-        this.randomCharacter = function () {
-            return new Character(this.options.characters.charAt(this.randomNumber(0, this.options.characters.length)), this.randomNumber(options.minimumCharChangeResistance, options.maximumCharChangeResistance));
-        };
-        this.randomSpeed = function () {
-            return this.randomFloat((this.options.minimumSpeed) + this.options.fontSize, (this.options.maximumSpeed) + this.options.fontSize);
-        }
-    }
-
+    // ----------------------classes----------------------
     function Options() {
         this.characters = `1234567890㐀㐁㐂㐃㐄㐅㐆㐇㐈㐉㐊㐋㐌㐍㐎`;
         this.fontSize = 22;
@@ -167,11 +197,11 @@ export function Rain(userOptions) {
         this.ctx = ctx;
     }
 
-    function Chain(characters, x, y, speed, fontSize) {
+    function Chain(characters, x, y, speed) {
         this.characters = characters;
         this.x = x;
         this.y = y;
-        this.length = fontSize * this.characters.length;
+        this.length = options.fontSize * this.characters.length;
         this.speed = speed;
     }
 
@@ -181,42 +211,42 @@ export function Rain(userOptions) {
         this.changeResistance = changeResistance;
     }
 
-    function Drawer(matrix, chains, options, tools) {
+    function Drawer(matrix, chains) {
         this.matrix = matrix;
         this.chains = chains;
-        this.options = options;
-        this.tools = tools;
         this.drawChains = function () {
             for (let i = 0; i < chains.length; i++) {
                 this.drawCharacters(chains[i]);
             }
         };
-        this.drawCharacters = function(chain) {
-            this.matrix.ctx.fillStyle = this.options.fontColor;
+        this.randomizeCharacter = function (character) {
+
+            if (parseInt((performance.now() % (options.chainChangeResistance + character.changeResistance))) == 0) {
+                character.value = randomCharacter().value;
+                return true;
+            }
+        };
+        this.drawCharacters = function (chain) {
+            ctx.fillStyle = options.fontColor;
             for (let i = 0; i < chain.characters.length; i++) {
                 let character = chain.characters[i];
-                this.matrix.ctx.fillStyle = this.tools.colorWithOpacity(character.opacity);
+                ctx.fillStyle = colorWithOpacity(character.opacity);
                 if (i == chain.characters.length - 1) {
-                    this.matrix.ctx.fillStyle = firstCharColor;
+                    ctx.fillStyle = firstCharColor;
                 }
-                this.matrix.ctx.fillText(character.value, chain.x, chain.y);
-                chain.y = chain.y +this.options.fontSize;
+                matrix.ctx.fillText(character.value, chain.x, chain.y);
+                chain.y = chain.y + options.fontSize;
                 this.randomizeCharacter(character);
             }
             this.updateChainCoordinates(chain);
         };
-        this.randomizeCharacter = function(character) {
-            if ((performance.now() % (this.options.chainChangeResistance + character.changeResistance)) == 0) {
-                character.value = this.tools.randomCharacter().value;
-                return true;
-            }
-        };
-        this.updateChainCoordinates = function(chain) {
-            chain.y = (chain.y - chain.length) + chain.speed - this.options.fontSize;
-            if (chain.y >= this.matrix.canvas.height) {
+        this.updateChainCoordinates = function (chain) {
+            chain.y = (chain.y - chain.length) + chain.speed - options.fontSize;
+            if (chain.y >= matrix.canvas.height) {
                 chain.y = chainY;
-                chain.speed = this.tools.randomSpeed();
+                chain.speed = randomSpeed();
             }
         };
     }
+    // ----------------------classes----------------------
 }

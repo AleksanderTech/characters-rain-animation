@@ -4,7 +4,7 @@ import { Rain } from '/rain.js';
     let options = {
         characters: `01`,
         fontSize: 22,
-        delay: -1000,
+        delay: -700,
         minimumSpeed: 1,
         maximumSpeed: 5,
         minimumChainLength: 10,
