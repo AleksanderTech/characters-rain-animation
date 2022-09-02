@@ -1,4 +1,4 @@
-import { Rain } from '/rain.js';
+import { Rain } from './rain.js';
 
 (function App() {
     let options = {
